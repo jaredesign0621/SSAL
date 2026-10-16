@@ -29,9 +29,11 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Setup Android Project files
+      - name: Recreate Clean Official Android Scaffold
         run: |
+          rm -rf android
           flutter create . --platforms=android --project-name=ssal --org=com.ssal
+          sed -i 's/android:label="ssal"/android:label="SSAL"/g' android/app/src/main/AndroidManifest.xml
 
       - name: Get dependencies
         run: flutter pub get

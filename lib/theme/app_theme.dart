@@ -24,7 +24,6 @@ class AppTheme {
         primary: primaryGold,
         secondary: accentGreen,
         surface: surfaceDark,
-        background: bgDark,
         error: accentRed,
       ),
       appBarTheme: const AppBarTheme(
