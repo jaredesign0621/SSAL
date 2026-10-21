@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>SSAL - 오프라인 게임 자산 & 거래 관리</title>
+  <!-- Google Fonts: Inter & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+  <link rel="stylesheet" href="style.css">
+
+  <!-- Firebase SDKs (Compat version for reliable, clean browser execution) -->
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+</head>
+<body>
+  <!-- 상단 컨트롤 바: PC 브라우저에서 화면 모드 전환 -->
+  <header class="top-control-bar">
+    <div class="control-left">
+      <span class="control-title">🌾 SSAL 실시간 웹 프리뷰</span>
+      <span id="sync-status-badge" class="badge online-badge">● Firebase 클라우드 연결됨</span>
+    </div>
+    <div class="control-right">
+      <button id="view-mode-phone" class="mode-btn active" title="스마트폰 화면 크기로 보기">📱 모바일 뷰</button>
+      <button id="view-mode-full" class="mode-btn" title="전체화면으로 넓게 보기">💻 전체화면</button>
+      <button id="reset-data-btn" class="mode-btn danger-btn" title="초기 샘플 데이터로 복원">↺ 샘플 데이터 리셋</button>
+    </div>
+  </header>
+
+  <!-- 메인 컨테이너 (모바일 뷰 또는 풀스크린) -->
+  <main class="app-wrapper phone-mode" id="app-wrapper">
+    <div class="device-frame">
+      <!-- 스마트폰 상단 스피커 & 노치 바 (모바일 프레임 모드일 때만 표시) -->
+      <div class="phone-notch">
+        <div class="speaker"></div>
+      </div>
+
+      <!-- 스마트폰 앱 컨텐츠 영역 -->
+      <div class="phone-screen">
+        <!-- 1. 앱 헤더 (AppBar) -->
+        <header class="app-bar">
+          <div class="brand">
+            <div class="brand-text">
+              <h1 class="app-title">SSAL</h1>
+              <span class="app-subtitle">오프라인 게임 자산 매니저</span>
+            </div>
+          </div>
+          <!-- 우측: 로그인/사용자 상태 & 관리자 버튼 -->
+          <div class="app-bar-actions" id="app-bar-user-area">
+            <!-- JS에서 동적으로 렌더링 -->
+          </div>
+        </header>
+
+        <!-- 2. 상단 현재 게임/서버 퀵 셀렉터 바 -->
+        <section class="quick-selector-bar">
+          <div class="selector-item">
+            <span class="selector-label">게임</span>
+            <select id="quick-game-select" class="selector-dropdown"></select>
+            <button class="icon-btn-tiny" title="새 게임 추가" onclick="openAddGameModal()">+</button>
+          </div>
+          <div class="selector-divider">/</div>
+          <div class="selector-item">
+            <span class="selector-label">서버</span>
+            <select id="quick-server-select" class="selector-dropdown"></select>
+          </div>
+        </section>
+
+        <!-- 3. 탭별 메인 뷰 컨텐츠 -->
+        <div class="tab-content-container">
+          <!-- 탭 1: 대시보드 (홈) -->
+          <section id="tab-dashboard" class="tab-pane active">
+            <!-- 핵심 지표 그리드 -->
+            <div class="metric-grid">
+              <div class="metric-card" onclick="switchTab('tab-exchange')">
+                <div class="metric-header">
+                  <span class="metric-title">누적 환전 정산액</span>
+                  <span class="metric-icon green">₩</span>
+                </div>
+                <div id="dash-total-krw" class="metric-value">₩ 0</div>
+                <span id="dash-krw-count" class="metric-sub">0건 거래 완료</span>
+              </div>
+
+              <div class="metric-card" onclick="goToCharacterScreen()">
+                <div class="metric-header">
+                  <span class="metric-title">관리 캐릭터</span>
+                  <span class="metric-icon blue">👤</span>
+                </div>
+                <div id="dash-char-count" class="metric-value">0 명</div>
+                <span class="metric-sub">현재 서버 기준</span>
+              </div>
+
+              <div class="metric-card" onclick="switchTab('tab-games')">
+                <div class="metric-header">
+                  <span class="metric-title">거래 수수료율</span>
+                  <span class="metric-icon yellow">%</span>
+                </div>
+                <div id="dash-fee-rate" class="metric-value">5.0%</div>
+                <span class="metric-sub">실수령 자동 계산</span>
+              </div>
+            </div>
+
+            <!-- 선택된 캐릭터 재화 미리보기 -->
+            <div class="section-block">
+              <div class="section-header">
+                <h3 class="section-title">🪙 보유 재화 빠른 요약</h3>
+                <button class="text-link-btn" onclick="goToCharacterScreen()">재화 관리 ➔</button>
+              </div>
+              <div id="dash-currency-list" class="currency-compact-list"></div>
+            </div>
+          </section>
+
+          <!-- 탭 2: 서버 관리 (서버 화면) -->
+          <section id="tab-games" class="tab-pane">
+            <div class="section-header">
+              <h2 class="section-title">🌐 서버</h2>
+              <button class="btn btn-sm btn-primary" onclick="openAddServerModal()">+ 새 서버</button>
+            </div>
+            <!-- 서버 카드 리스트 -->
+            <div id="server-card-list" class="server-cards-list"></div>
+          </section>
+
+          <!-- 탭 3: 캐릭터 및 보유 재화 관리 (서버 하위 화면) -->
+          <section id="tab-characters" class="tab-pane">
+            <!-- 하위 화면 뒤로가기 -->
+            <div class="subview-header-bar">
+              <button class="back-link-btn" onclick="switchTab('tab-games')" title="서버 목록으로 돌아가기">
+                <span class="back-arrow">‹</span>
+              </button>
+            </div>
+
+            <!-- 1. 캐릭터 리스트 -->
+            <div class="section-header">
+              <div>
+                <h2 class="section-title">👤 캐릭터 목록</h2>
+              </div>
+              <button class="btn btn-sm btn-primary" onclick="openAddCharModal()">+ 캐릭터 등록</button>
+            </div>
+
+            <!-- 계정별 분류된 캐릭터 리스트 컨테이너 -->
+            <div id="char-account-grouped-list" class="account-groups-list"></div>
+
+            <!-- 2. 보유 재화 현황 (총 캐릭터별 보유 다이아 합계만 출력) -->
+            <div class="section-header mt-4">
+              <div>
+                <h2 class="section-title">🪙 재화 합계</h2>
+              </div>
+            </div>
+            <div id="server-diamond-summary" class="diamond-summary-block"></div>
+          </section>
+
+          <!-- 탭 4: 거래소 수수료 계산기 -->
+          <section id="tab-market" class="tab-pane">
+            <div class="market-calc-card">
+              <div class="calc-header">
+                <div class="calc-title-group">
+                  <h2 class="section-title">📊 거래소 수수료 계산기</h2>
+                  <span class="calc-subtitle">판매 금액과 수수료율을 입력하면 실수령 재화가 자동 계산됩니다.</span>
+                </div>
+                <span id="market-calc-server-badge" class="fee-info-badge">수수료 5.0%</span>
+              </div>
+
+              <!-- 입력 폼 -->
+              <div class="calc-inputs-box">
+                <div class="form-group">
+                  <label for="mcalc-price">아이템 등록 단가</label>
+                  <div class="input-with-unit">
+                    <input type="number" id="mcalc-price" value="1000" min="0" placeholder="예: 1000">
+                    <span class="unit">재화</span>
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <div class="form-group flex-1">
+                    <label for="mcalc-qty">판매 수량</label>
+                    <div class="input-with-unit">
+                      <input type="number" id="mcalc-qty" value="1" min="1" placeholder="1">
+                      <span class="unit">개</span>
+                    </div>
+                  </div>
+                  <div class="form-group flex-1">
+                    <label for="mcalc-fee-rate">거래소 수수료율</label>
+                    <div class="input-with-unit">
+                      <input type="number" id="mcalc-fee-rate" value="5.0" step="0.1" min="0" max="100" placeholder="5.0">
+                      <span class="unit">%</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 수수료 빠른 선택 칩 -->
+                <div class="quick-fee-chips">
+                  <span class="chips-label">수수료 빠른 선택:</span>
+                  <button type="button" class="fee-chip" onclick="setMarketFeeRate(3.0)">3.0%</button>
+                  <button type="button" class="fee-chip" onclick="setMarketFeeRate(5.0)">5.0%</button>
+                  <button type="button" class="fee-chip" onclick="setMarketFeeRate(6.0)">6.0%</button>
+                  <button type="button" class="fee-chip" onclick="setMarketFeeRate(10.0)">10.0%</button>
+                  <button type="button" class="fee-chip sync-btn" onclick="syncServerFeeRate()">현재 서버 수수료 적용</button>
+                </div>
+              </div>
+
+              <!-- 실시간 정산 결과 카드 -->
+              <div class="calc-result-card">
+                <div class="result-row">
+                  <span class="result-label">총 판매 등록 금액</span>
+                  <span id="mcalc-gross-val" class="result-val">1,000 재화</span>
+                </div>
+                <div class="result-row text-red">
+                  <span class="result-label">거래소 수수료 차감 (<span id="mcalc-fee-percent-label">5.0%</span>)</span>
+                  <span id="mcalc-fee-val" class="result-val">-50 재화</span>
+                </div>
+                <div class="result-divider"></div>
+                <div class="result-row final-net-row">
+                  <div class="net-title-box">
+                    <span class="final-net-label">최종 내가 얻는 재화</span>
+                    <span class="final-net-sub">실수령액</span>
+                  </div>
+                  <div class="net-val-box">
+                    <img src="https://raw.githubusercontent.com/jaredesign0621/SSAL/main/asset/dia.png" alt="재화" class="dia-icon-sm" onerror="this.style.display='none'">
+                    <span id="mcalc-net-val" class="final-net-val">950</span>
+                    <span class="final-net-unit">재화</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- 탭 5: 환전 및 출금 수수료 관리 -->
+          <section id="tab-exchange" class="tab-pane">
+            <div class="exchange-calculator-card">
+              <div class="calc-header">
+                <h3>💱 재화 ➔ 현금(KRW) 환전 계산기</h3>
+                <span id="exchange-char-badge" class="badge">본캐</span>
+              </div>
+
+              <!-- 1. 재화 수량 & 단가 -->
+              <div class="form-row">
+                <div class="form-group flex-3">
+                  <label>판매할 재화 수량</label>
+                  <div class="input-with-unit">
+                    <input type="number" id="ex-amount" value="10000" placeholder="10000">
+                    <span class="unit">개</span>
+                  </div>
+                </div>
+                <div class="form-group flex-2">
+                  <label>1개당 원화(KRW)</label>
+                  <div class="input-with-unit">
+                    <input type="number" id="ex-rate" value="10.0" step="0.1" placeholder="10.0">
+                    <span class="unit">원</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 2. 중개 수수료율 & 출금 수수료 금액 (한줄) -->
+              <div class="form-row">
+                <div class="form-group flex-1">
+                  <label>중개/플랫폼 수수료율</label>
+                  <div class="input-with-unit">
+                    <input type="number" id="ex-fee-rate" value="0.0" step="0.1" placeholder="0.0">
+                    <span class="unit">%</span>
+                  </div>
+                </div>
+                <div class="form-group flex-1">
+                  <label>출금 수수료 기준액</label>
+                  <div class="input-with-unit">
+                    <input type="number" id="ex-withdraw-fee-val" value="1000" placeholder="1000">
+                    <span class="unit">원</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 3. 핵심: 출금 수수료 체크박스 (단독 한줄 전체너비) -->
+              <div class="withdraw-fee-card" id="withdraw-box">
+                <label class="custom-checkbox-label" for="ex-withdraw-check">
+                  <input type="checkbox" id="ex-withdraw-check" checked>
+                  <span class="withdraw-text">출금 수수료 차감 적용</span>
+                </label>
+                <span id="withdraw-fee-amount-text" class="withdraw-badge">-1,000원</span>
+              </div>
+
+              <div class="form-group">
+                <label>환전 메모 (선택)</label>
+                <input type="text" id="ex-memo" placeholder="예: 바로템 재화 판매 완료, 통장 입금 확인">
+              </div>
+
+              <!-- 실시간 정산 명세서 -->
+              <div class="exchange-receipt">
+                <div class="receipt-row">
+                  <span>기본 환전 총액</span>
+                  <span id="rcpt-gross" class="font-bold">100,000 원</span>
+                </div>
+                <div class="receipt-row text-red" id="rcpt-platform-fee-row">
+                  <span>플랫폼 수수료 (<span id="rcpt-fee-rate-label">0%</span>)</span>
+                  <span id="rcpt-platform-fee">-0 원</span>
+                </div>
+                <div class="receipt-row text-red" id="rcpt-withdraw-fee-row">
+                  <span>계좌 출금 수수료</span>
+                  <span id="rcpt-withdraw-fee">-1,000 원</span>
+                </div>
+                <div class="receipt-divider"></div>
+                <div class="receipt-row final-row">
+                  <span class="final-label">➔ 최종 실수령 금액:</span>
+                  <span id="rcpt-final" class="final-amount">₩ 99,000</span>
+                </div>
+              </div>
+
+              <button class="btn btn-primary w-100 mt-3" onclick="saveExchangeRecord()">💾 환전 기록 로컬 저장</button>
+            </div>
+
+            <!-- 지난 환전 내역 리스트 -->
+            <div class="section-header mt-4">
+              <h2 class="section-title">📜 환전 내역 히스토리</h2>
+              <span id="ex-history-total" class="history-total-tag">총 실수령: ₩ 0</span>
+            </div>
+            <div id="exchange-history-list" class="exchange-history-container"></div>
+          </section>
+
+          <!-- 탭 6: 관리자 화면 (Admin Dashboard) -->
+          <section id="tab-admin" class="tab-pane">
+            <div class="admin-container">
+              <!-- 관리자 헤더 요약 바 -->
+              <div class="admin-header-card">
+                <div class="admin-badge-row">
+                  <span class="admin-role-badge">🛡️ 시스템 최고 관리자</span>
+                  <button class="btn btn-xs btn-outline" onclick="switchTab('tab-dashboard')">← 일반 화면 복귀</button>
+                </div>
+                <h2 class="admin-title">SSAL 통합 관리자 콘솔</h2>
+                <span class="admin-subtitle">회원 데이터, 서버/게임 마스터 설정, 오프라인 시스템 백업 관리</span>
+              </div>
+
+              <!-- 관리자 핵심 통계 지표 -->
+              <div class="admin-metric-grid">
+                <div class="admin-stat-card">
+                  <span class="admin-stat-label">총 등록 회원</span>
+                  <span id="admin-user-count" class="admin-stat-value">0명</span>
+                </div>
+                <div class="admin-stat-card">
+                  <span class="admin-stat-label">관리 캐릭터</span>
+                  <span id="admin-char-count" class="admin-stat-value">0개</span>
+                </div>
+                <div class="admin-stat-card">
+                  <span class="admin-stat-label">등록 게임/서버</span>
+                  <span id="admin-server-count" class="admin-stat-value">0개</span>
+                </div>
+                <div class="admin-stat-card">
+                  <span class="admin-stat-label">총 보유 재화 합계</span>
+                  <span id="admin-currency-sum" class="admin-stat-value">0</span>
+                </div>
+              </div>
+
+              <!-- 회원 관리 섹션 -->
+              <div class="section-block mt-3">
+                <div class="section-header">
+                  <h3 class="section-title">👥 회원 계정 관리</h3>
+                  <button class="btn btn-sm btn-primary" onclick="openAddUserModal()">+ 관리자 수동 회원 추가</button>
+                </div>
+                <div id="admin-user-table-container" class="admin-table-container"></div>
+              </div>
+
+              <!-- 서버 수수료 마스터 일괄 설정 섹션 -->
+              <div class="section-block mt-4">
+                <div class="section-header">
+                  <h3 class="section-title">🌐 서버 수수료율 마스터 관리</h3>
+                </div>
+                <div id="admin-server-list-container" class="admin-table-container"></div>
+              </div>
+
+              <!-- 시스템 데이터 백업 / 복원 섹션 -->
+              <div class="section-block mt-4 mb-4">
+                <div class="section-header">
+                  <h3 class="section-title">💾 시스템 백업 & 복원</h3>
+                </div>
+                <div class="admin-backup-card">
+                  <p class="backup-desc">브라우저 로컬 스토리지에 저장된 모든 데이터(회원, 게임, 서버, 캐릭터, 재화)를 JSON 파일로 내보내거나 가져올 수 있습니다.</p>
+                  <div class="backup-actions">
+                    <button class="btn btn-primary" onclick="exportAppDataJson()">📤 전체 데이터 JSON 백업 다운로드</button>
+                    <label class="btn btn-outline file-input-label">
+                      📥 JSON 백업 파일 복원
+                      <input type="file" id="admin-restore-file" accept=".json" onchange="importAppDataJson(event)" style="display:none;">
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- 4. 하단 스마트폰 바텀 네비게이션 바 -->
+        <nav class="bottom-nav">
+          <button class="nav-item active" onclick="switchTab('tab-dashboard')">
+            <span class="nav-icon">
+              <svg class="icon-svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="7" height="7"></rect>
+                <rect x="14" y="3" width="7" height="7"></rect>
+                <rect x="14" y="14" width="7" height="7"></rect>
+                <rect x="3" y="14" width="7" height="7"></rect>
+              </svg>
+            </span>
+            <span class="nav-label">홈</span>
+          </button>
+          <button class="nav-item" onclick="switchTab('tab-games')">
+            <span class="nav-icon">
+              <svg class="icon-svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+                <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+                <line x1="6" y1="6" x2="6.01" y2="6"></line>
+                <line x1="6" y1="18" x2="6.01" y2="18"></line>
+              </svg>
+            </span>
+            <span class="nav-label">게임/서버</span>
+          </button>
+          <button class="nav-item" onclick="switchTab('tab-market')">
+            <span class="nav-icon">
+              <svg class="icon-svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+              </svg>
+            </span>
+            <span class="nav-label">거래소계산기</span>
+          </button>
+          <button class="nav-item disabled" disabled title="준비 중인 기능입니다">
+            <span class="nav-icon">
+              <svg class="icon-svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="17 1 21 5 17 9"></polyline>
+                <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+                <polyline points="7 23 3 19 7 15"></polyline>
+                <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+              </svg>
+            </span>
+            <span class="nav-label">환전/출금</span>
+          </button>
+        </nav>
+      </div>
+    </div>
+  </main>
+
+  <!-- ================= 모달 다이얼로그들 ================= -->
+  <!-- 1. 거래소 아이템 등록 모달 (핵심: 실시간 수수료 계산) -->
+  <div id="modal-market-item" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>🛒 거래소 아이템 등록</h3>
+        <button class="close-btn" onclick="closeModal('modal-market-item')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>아이템 이름 *</label>
+          <input type="text" id="m-item-name" placeholder="예: 영웅 방패, 축복받은 강화 주문서">
+        </div>
+        <div class="form-row">
+          <div class="form-group flex-3">
+            <label>등록 가격 (재화) *</label>
+            <div class="input-with-unit">
+              <input type="number" id="m-item-price" placeholder="예: 100">
+              <span class="unit">재화</span>
+            </div>
+          </div>
+          <div class="form-group flex-2">
+            <label>수량</label>
+            <input type="number" id="m-item-qty" value="1" placeholder="1">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>적용 수수료율 (%)</label>
+          <div class="input-with-unit">
+            <input type="number" id="m-item-fee" step="0.1" value="5.0">
+            <span class="unit">%</span>
+          </div>
+          <span class="tiny-helper">※ 현재 선택된 서버의 기본 수수료율이 자동 적용됩니다.</span>
+        </div>
+
+        <!-- 실시간 실수령액 자동 계산 카드 (핵심 요구사항) -->
+        <div class="market-calc-preview">
+          <div class="preview-row">
+            <span>총 등록 금액:</span>
+            <span id="m-calc-gross">0 재화</span>
+          </div>
+          <div class="preview-row text-red">
+            <span>수수료 차감 (<span id="m-calc-fee-rate-label">5.0%</span>):</span>
+            <span id="m-calc-fee">-0 재화</span>
+          </div>
+          <div class="preview-divider"></div>
+          <div class="preview-row net-row">
+            <span class="net-title">➔ 실수령액:</span>
+            <span id="m-calc-net" class="net-amount">0 재화</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modal-market-item')">취소</button>
+        <button class="btn btn-primary" onclick="submitAddMarketItem()">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. 게임 추가/수정 모달 -->
+  <div id="modal-game" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-game-title">신규 게임 등록</h3>
+        <button class="close-btn" onclick="closeModal('modal-game')">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="g-edit-id">
+        <div class="form-group">
+          <label>게임 이름 *</label>
+          <input type="text" id="g-name" placeholder="예: 오딘: 발할라 라이징, 리니지M">
+        </div>
+        <div class="form-group">
+          <label>메모 (선택)</label>
+          <input type="text" id="g-memo" placeholder="예: 모바일 MMORPG, 카카오게임즈">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modal-game')">취소</button>
+        <button class="btn btn-primary" onclick="submitGameForm()">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. 서버 추가/수정 모달 (수수료율 직접 입력) -->
+  <div id="modal-server" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-server-title">서버 추가 및 수수료 설정</h3>
+        <button class="close-btn" onclick="closeModal('modal-server')">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="s-edit-id">
+        <div class="form-group">
+          <label>서버 이름 *</label>
+          <input type="text" id="s-name" placeholder="예: 오딘01, 루페온, 데포로쥬01">
+        </div>
+        <div class="form-group">
+          <label>거래소 수수료율 (%) *</label>
+          <div class="input-with-unit">
+            <input type="number" id="s-fee-rate" step="0.1" value="5.0" placeholder="5.0">
+            <span class="unit">%</span>
+          </div>
+          <span class="tiny-helper">※ 서버별로 거래소 이용 시 적용될 수수료율(5%, 10% 등)을 지정합니다.</span>
+        </div>
+        <div class="form-group">
+          <label>메모 (선택)</label>
+          <input type="text" id="s-memo" placeholder="예: 도시 서버, 시세 안정">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modal-server')">취소</button>
+        <button class="btn btn-primary" onclick="submitServerForm()">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. 캐릭터 등록/수정 모달 -->
+  <div id="modal-character" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-char-title">캐릭터 & 계정 등록</h3>
+        <button class="close-btn" onclick="closeModal('modal-character')">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="c-edit-id">
+        <div class="form-group">
+          <label>캐릭터 명 *</label>
+          <input type="text" id="c-name" placeholder="예: 쌀먹장인1호, 버서커80">
+        </div>
+        <div class="form-group">
+          <label>연동된 계정 정보 *</label>
+          <input type="text" id="c-account" placeholder="예: google01@gmail.com, 카카오계정">
+        </div>
+        <div class="form-group">
+          <label>기종 (선택)</label>
+          <input type="text" id="c-device" placeholder="예: PC, 아이폰15, 갤럭시S24, 공기계1">
+        </div>
+        <div class="form-group">
+          <label>보유 재화 수량 *</label>
+          <input type="number" id="c-diamond" placeholder="예: 25000" min="0" value="0">
+        </div>
+        <div class="form-group">
+          <label>메모 (선택)</label>
+          <input type="text" id="c-note" placeholder="예: 80렙 본캐, 보스 탐용">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modal-character')">취소</button>
+        <button class="btn btn-primary" onclick="submitCharForm()">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. 재화 추가/수정 모달 -->
+  <div id="modal-currency" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>보유 재화 추가/수정</h3>
+        <button class="close-btn" onclick="closeModal('modal-currency')">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="cur-edit-id">
+        <div class="form-group">
+          <label>재화 종류 *</label>
+          <input type="text" id="cur-name" value="재화" placeholder="예: 재화, 다이아, 골드, 쌀, 루비">
+        </div>
+        <div class="form-group">
+          <label>보유 수량 *</label>
+          <input type="number" id="cur-amount" value="10000" placeholder="10000">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modal-currency')">취소</button>
+        <button class="btn btn-primary" onclick="submitCurrencyForm()">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. 로그인 / 회원가입 통합 모달 -->
+  <div id="modal-auth" class="modal-overlay">
+    <div class="modal-card auth-modal-card">
+      <div class="modal-header">
+        <h3 id="auth-modal-title">로그인</h3>
+        <button class="close-btn" onclick="closeModal('modal-auth')">✕</button>
+      </div>
+      <div class="modal-body">
+        <!-- 탭 스위처: 로그인 / 회원가입 -->
+        <div class="auth-tabs">
+          <button id="auth-tab-login" class="auth-tab-btn active" onclick="switchAuthMode('login')">로그인</button>
+          <button id="auth-tab-register" class="auth-tab-btn" onclick="switchAuthMode('register')">회원가입</button>
+        </div>
+
+        <form id="auth-form" onsubmit="handleAuthSubmit(event)">
+          <div class="form-group">
+            <label>아이디 (또는 이메일) *</label>
+            <input type="text" id="auth-username" required placeholder="아이디 입력 (예: admin, gamer1)">
+          </div>
+
+          <div class="form-group" id="auth-nickname-group" style="display: none;">
+            <label>닉네임 *</label>
+            <input type="text" id="auth-nickname" placeholder="표시될 닉네임 (예: 쌀먹마스터)">
+          </div>
+
+          <div class="form-group">
+            <label>비밀번호 *</label>
+            <input type="password" id="auth-password" required placeholder="비밀번호 입력">
+          </div>
+
+          <div class="form-group" id="auth-password-confirm-group" style="display: none;">
+            <label>비밀번호 확인 *</label>
+            <input type="password" id="auth-password-confirm" placeholder="비밀번호 재입력">
+          </div>
+
+          <div class="auth-quick-hint" id="auth-quick-hint">
+            <span>💡 내 마스터 계정: <strong>jared0621</strong> (비번: <strong>Tlsgn112!</strong>)</span>
+          </div>
+
+          <div class="modal-footer" style="padding: 12px 0 0 0;">
+            <button type="button" class="btn btn-outline" onclick="closeModal('modal-auth')">취소</button>
+            <button type="submit" id="auth-submit-btn" class="btn btn-primary">로그인</button>
+          </div>
+
+          <!-- 구글 원클릭 로그인 -->
+          <div class="auth-divider-box">
+            <span>또는</span>
+          </div>
+          <button type="button" class="btn btn-google-login" onclick="handleGoogleSignIn()">
+            <svg class="google-icon" viewBox="0 0 24 24" width="18" height="18">
+              <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/>
+              <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"/>
+              <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 10.03 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
+              <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+            </svg>
+            <span>Google 계정으로 계속하기</span>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. 관리자 전용: 회원 추가/수정 모달 -->
+  <div id="modal-admin-user" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-admin-user-title">신규 회원 계정 등록</h3>
+        <button class="close-btn" onclick="closeModal('modal-admin-user')">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="adm-user-id">
+        <div class="form-group">
+          <label>아이디 *</label>
+          <input type="text" id="adm-user-username" placeholder="예: gamer2">
+        </div>
+        <div class="form-group">
+          <label>닉네임 *</label>
+          <input type="text" id="adm-user-nickname" placeholder="예: 쌀먹전문가">
+        </div>
+        <div class="form-group">
+          <label>비밀번호 *</label>
+          <input type="password" id="adm-user-password" placeholder="임시 비밀번호">
+        </div>
+        <div class="form-group">
+          <label>권한 등급 *</label>
+          <select id="adm-user-role" class="selector-dropdown">
+            <option value="user">일반 회원 (user)</option>
+            <option value="admin">최고 관리자 (admin)</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modal-admin-user')">취소</button>
+        <button class="btn btn-primary" onclick="submitAdminUserForm()">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 토스트 알림창 -->
+  <div id="toast" class="toast">알림 메시지</div>
+
+  <script src="app.js"></script>
+</body>
+</html>
