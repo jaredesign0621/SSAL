@@ -41,7 +41,7 @@ const INITIAL_DATA = {
     { id: 1, username: 'jared0621', password: 'Tlsgn112!', nickname: 'Jared (마스터)', role: 'admin', createdAt: '2026-10-21' },
     { id: 2, username: 'admin', password: 'admin', nickname: '최고관리자', role: 'admin', createdAt: '2026-10-15' }
   ],
-  currentUser: { id: 1, username: 'jared0621', nickname: 'Jared (마스터)', role: 'admin' }
+  currentUser: null
 };
 
 // --- 로컬 & 클라우드 스토리지 관리 ---
@@ -76,8 +76,6 @@ function loadState() {
       createdAt: '2026-10-21'
     });
   }
-  // 현재 로그인된 사용자를 jared0621로 기본 지정
-  state.currentUser = { id: 1, username: 'jared0621', nickname: 'Jared (마스터)', role: 'admin' };
   return state;
 }
 
@@ -1533,4 +1531,9 @@ function importAppDataJson(event) {
 
 // --- 초기화 실행 ---
 renderAll();
+if (!appState.currentUser) {
+  setTimeout(() => {
+    openAuthModal('login');
+  }, 300);
+}
 console.log('🌾 SSAL App Ready.');
