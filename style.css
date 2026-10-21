@@ -2741,3 +2741,36 @@ body {
 .file-input-label {
   cursor: pointer;
 }
+
+/* =========================================================
+   모바일 웹뷰 및 스마트폰 화면 최적화 (상단 프리뷰 바 및 베젤 자동 숨김)
+========================================================= */
+@media (max-width: 600px), (display-mode: standalone) {
+  body {
+    background-color: var(--bg-main);
+  }
+
+  .top-control-bar {
+    display: none !important;
+  }
+
+  .app-wrapper {
+    padding: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+  }
+
+  .app-wrapper .device-frame {
+    width: 100vw !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    max-height: 100vh !important;
+    border-radius: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  .phone-notch {
+    display: none !important;
+  }
+}
