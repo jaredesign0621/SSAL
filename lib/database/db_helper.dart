@@ -125,8 +125,6 @@ class DatabaseHelper {
     // 초기 빈 데이터베이스 상태 유지 (가라데이터 제거)
   }
 
-  }
-
   // --- CRUD: Games ---
   Future<List<GameModel>> getGames() async {
     final db = await instance.database;
