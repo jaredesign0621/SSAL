@@ -37,8 +37,19 @@ class CharacterManageScreen extends StatelessWidget {
 
     final server = provider.selectedServer!;
     final characters = provider.characters;
+    final canPop = Navigator.of(context).canPop();
 
     return Scaffold(
+      appBar: canPop
+          ? AppBar(
+              title: Text(
+                '${server.name} 캐릭터 관리',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              backgroundColor: AppTheme.surfaceDark,
+              elevation: 0,
+            )
+          : null,
       body: Row(
         children: [
           // 왼쪽: 캐릭터 목록

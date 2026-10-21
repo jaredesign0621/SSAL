@@ -26,46 +26,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final List<Widget> screens = [
       _buildHomeOverview(context, provider),
       const GameServerScreen(),
-      const CharacterManageScreen(),
       const MarketCalculatorScreen(),
       const ExchangeScreen(),
     ];
 
     return Scaffold(
-      appBar: SsalAppBar(
-        actions: [
-          // 상단: 오프라인 모드 상태 표시 뱃지
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceDark,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppTheme.accentGreen.withOpacity(0.5)),
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.wifi_off, size: 14, color: AppTheme.accentGreen),
-                SizedBox(width: 5),
-                Text(
-                  '오프라인 DB',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.accentGreen,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.info_outline, color: AppTheme.textMuted),
-            tooltip: '앱 정보',
-            onPressed: () => _showAppInfoDialog(context),
-          ),
-        ],
-      ),
+      appBar: const SsalAppBar(),
       body: provider.isLoading
           ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryGold))
           : screens[_currentIndex],
@@ -96,11 +62,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               icon: Icon(Icons.dns_outlined),
               activeIcon: Icon(Icons.dns),
               label: '게임/서버',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline),
-              activeIcon: Icon(Icons.person),
-              label: '캐릭터/재화',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.storefront_outlined),
@@ -206,7 +167,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   subtitle: '${provider.exchangeRecords.length}건 거래 완료',
                   icon: Icons.paid,
                   iconColor: AppTheme.accentGreen,
-                  onTap: () => setState(() => _currentIndex = 4),
+                  onTap: () => setState(() => _currentIndex = 3),
                 ),
               ),
               const SizedBox(width: 12),
@@ -217,7 +178,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   subtitle: '전체 $totalMarketItems건 중 판매중',
                   icon: Icons.storefront,
                   iconColor: AppTheme.primaryGold,
-                  onTap: () => setState(() => _currentIndex = 3),
+                  onTap: () => setState(() => _currentIndex = 2),
                 ),
               ),
             ],
@@ -232,7 +193,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   subtitle: server != null ? '${server.name} 기준' : '서버 미선택',
                   icon: Icons.people_outline,
                   iconColor: AppTheme.accentBlue,
-                  onTap: () => setState(() => _currentIndex = 2),
+                  onTap: () {
+                    if (provider.selectedServer != null) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const CharacterManageScreen(),
+                        ),
+                      );
+                    } else {
+                      setState(() => _currentIndex = 1);
+                    }
+                  },
                 ),
               ),
               const SizedBox(width: 12),
@@ -260,7 +232,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                 ),
                 TextButton(
-                  onPressed: () => setState(() => _currentIndex = 2),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const CharacterManageScreen(),
+                      ),
+                    );
+                  },
                   child: const Text('재화 관리 ➔', style: TextStyle(fontSize: 12)),
                 ),
               ],

@@ -4,6 +4,7 @@ import '../providers/ssal_provider.dart';
 import '../models/game_model.dart';
 import '../models/server_model.dart';
 import '../theme/app_theme.dart';
+import 'character_manage_screen.dart';
 
 class GameServerScreen extends StatelessWidget {
   const GameServerScreen({Key? key}) : super(key: key);
@@ -221,7 +222,15 @@ class GameServerScreen extends StatelessWidget {
                           ),
                         ),
                         child: InkWell(
-                          onTap: () => provider.selectServer(server),
+                          onTap: () {
+                            provider.selectServer(server);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const CharacterManageScreen(),
+                              ),
+                            );
+                          },
                           borderRadius: BorderRadius.circular(12),
                           child: Padding(
                             padding: const EdgeInsets.all(14.0),
@@ -282,6 +291,30 @@ class GameServerScreen extends StatelessWidget {
                                     ],
                                   ),
                                 ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primaryGold.withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: AppTheme.primaryGold.withOpacity(0.3)),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        '캐릭터 관리',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.primaryGoldLight,
+                                        ),
+                                      ),
+                                      SizedBox(width: 2),
+                                      Icon(Icons.chevron_right, size: 14, color: AppTheme.primaryGoldLight),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
                                 IconButton(
                                   icon: const Icon(Icons.edit, size: 18, color: AppTheme.textMuted),
                                   tooltip: '서버 & 수수료 수정',
