@@ -20,6 +20,16 @@ try {
     fbAuth = firebase.auth();
     fbDb = firebase.firestore();
     isFirebaseReady = true;
+
+    // Firebase Auth 인증 상태 유지 (Firestore 보안 규칙 통과 보장)
+    fbAuth.onAuthStateChanged(user => {
+      if (!user) {
+        fbAuth.signInAnonymously().catch(e => {
+          console.warn('Anonymous auth note (can use open test rules):', e.message);
+        });
+      }
+    });
+
     console.log('🔥 Firebase Cloud Connected successfully to ssal-1bd3b');
   }
 } catch (err) {
