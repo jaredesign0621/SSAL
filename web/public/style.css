@@ -46,14 +46,21 @@
   word-break: keep-all; /* 단어 단위 줄바꿈 방지 */
 }
 
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
 body {
   font-family: var(--font-sans);
   background-color: #05070d;
   color: var(--text-main);
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
-  overflow-x: hidden;
+  overflow: hidden;
 }
 
 /* --- 상단 컨트롤 바 (PC 브라우저용 뷰어 조절 바) --- */
@@ -136,15 +143,17 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 16px 20px;
+  height: calc(100% - 50px);
+  overflow: hidden;
 }
 
 /* 모바일 폰 모드 */
 .app-wrapper.phone-mode .device-frame {
   width: 100%;
-  max-width: 430px;
-  height: 880px;
-  max-height: calc(100vh - 80px);
+  max-width: 440px;
+  height: 100%;
+  max-height: 100%;
   background: #000;
   border-radius: var(--radius-phone);
   border: 8px solid #232b3b;
@@ -2743,11 +2752,17 @@ body {
 }
 
 /* =========================================================
-   모바일 웹뷰 및 스마트폰 화면 최적화 (상단 프리뷰 바 및 베젤 자동 숨김)
+   모바일 웹뷰 및 스마트폰 화면 최적화 (상단 프리뷰 바 및 베젤 자동 숨김 & 100% 꽉 찬 화면)
 ========================================================= */
 @media (max-width: 600px), (display-mode: standalone) {
+  html, body {
+    height: 100% !important;
+    height: 100dvh !important;
+    overflow: hidden !important;
+  }
+
   body {
-    background-color: var(--bg-main);
+    background-color: var(--bg-main) !important;
   }
 
   .top-control-bar {
@@ -2756,18 +2771,28 @@ body {
 
   .app-wrapper {
     padding: 0 !important;
+    width: 100% !important;
     width: 100vw !important;
-    height: 100vh !important;
+    height: 100% !important;
+    height: 100dvh !important;
+    max-height: 100% !important;
   }
 
   .app-wrapper .device-frame {
+    width: 100% !important;
     width: 100vw !important;
     max-width: 100% !important;
     height: 100% !important;
-    max-height: 100vh !important;
+    height: 100dvh !important;
+    max-height: 100% !important;
     border-radius: 0 !important;
     border: none !important;
     box-shadow: none !important;
+  }
+
+  .phone-screen {
+    height: 100% !important;
+    height: 100dvh !important;
   }
 
   .phone-notch {
