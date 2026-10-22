@@ -82,12 +82,12 @@ function loadState() {
 let appState = loadState();
 
 // 실시간 저장 (로컬 캐시 저장 + 로그인 시 Firebase 클라우드 자동 동기화)
-function saveState() {
+function saveState(skipCloud = false) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
   renderAll();
 
-  // 로그인된 유저가 있으면 Firebase Cloud Firestore에 실시간 동기화
-  if (isFirebaseReady && fbDb && appState.currentUser) {
+  // 로그인된 유저가 있고, 클라우드 쓰기를 건너뛰는 모드가 아닐 때만 Firestore에 저장
+  if (!skipCloud && isFirebaseReady && fbDb && appState.currentUser) {
     const userDocId = String(appState.currentUser.id || appState.currentUser.username || 'user');
     fbDb.collection('user_data').doc(userDocId).set({
       games: appState.games,
@@ -155,7 +155,7 @@ async function loadUserDataFromCloud(userId) {
       appState.selectedGameId = cloudData.selectedGameId || null;
       appState.selectedServerId = cloudData.selectedServerId || null;
       appState.selectedCharId = cloudData.selectedCharId || null;
-      saveState();
+      saveState(true); // 로컬에만 저장하고 클라우드 덮어쓰기 방지
       showToast('☁️ 클라우드 데이터를 성공적으로 동기화했습니다.');
     }
   } catch (err) {
@@ -1240,7 +1240,7 @@ function handleAuthSubmit(e) {
       nickname: user.nickname,
       role: user.role
     };
-    saveState();
+    saveState(true); // 로그인 직후에는 클라우드를 덮어쓰지 않고 로컬에만 세션 기록
     closeModal('modal-auth');
     showToast(`${user.nickname || user.username}님, 환영합니다!`);
     loadUserDataFromCloud(user.id);
