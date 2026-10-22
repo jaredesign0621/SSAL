@@ -104,9 +104,44 @@ function saveState() {
   }
 }
 
+let cloudUnsubscribe = null;
+
+// 클라우드 실시간 리스너 연동 (웹과 앱 화면 간 실시간 양방향 싱크)
+function attachCloudSyncListener(userId) {
+  if (!isFirebaseReady || !fbDb || !userId) return;
+  if (cloudUnsubscribe) {
+    cloudUnsubscribe();
+    cloudUnsubscribe = null;
+  }
+
+  const userDocRef = fbDb.collection('user_data').doc(String(userId));
+  cloudUnsubscribe = userDocRef.onSnapshot(doc => {
+    if (doc.exists) {
+      const cloudData = doc.data();
+      // 원격 클라우드 최신 데이터로 로컬 메모리 상태 갱신
+      appState.games = cloudData.games || [];
+      appState.servers = cloudData.servers || [];
+      appState.characters = cloudData.characters || [];
+      appState.currencies = cloudData.currencies || [];
+      appState.marketItems = cloudData.marketItems || [];
+      appState.exchangeRecords = cloudData.exchangeRecords || [];
+      if (cloudData.selectedGameId !== undefined) appState.selectedGameId = cloudData.selectedGameId;
+      if (cloudData.selectedServerId !== undefined) appState.selectedServerId = cloudData.selectedServerId;
+      if (cloudData.selectedCharId !== undefined) appState.selectedCharId = cloudData.selectedCharId;
+
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+      renderAll();
+      console.log('🔄 Firestore Real-time Cloud Sync updated across devices');
+    }
+  }, err => {
+    console.warn('Real-time sync listener error:', err);
+  });
+}
+
 // 클라우드에서 유저 데이터 불러오기
 async function loadUserDataFromCloud(userId) {
   if (!isFirebaseReady || !fbDb || !userId) return;
+  attachCloudSyncListener(userId);
   try {
     const doc = await fbDb.collection('user_data').doc(String(userId)).get();
     if (doc.exists) {
@@ -121,7 +156,7 @@ async function loadUserDataFromCloud(userId) {
       appState.selectedServerId = cloudData.selectedServerId || null;
       appState.selectedCharId = cloudData.selectedCharId || null;
       saveState();
-      showToast('☁️ 클라우드 데이터를 성공적으로 불러왔습니다.');
+      showToast('☁️ 클라우드 데이터를 성공적으로 동기화했습니다.');
     }
   } catch (err) {
     console.warn('Cloud load error:', err);
@@ -1289,6 +1324,10 @@ async function handleGoogleSignIn() {
 
 function handleLogout() {
   if (confirm('로그아웃 하시겠습니까?')) {
+    if (cloudUnsubscribe) {
+      cloudUnsubscribe();
+      cloudUnsubscribe = null;
+    }
     if (isFirebaseReady && fbAuth && fbAuth.currentUser) {
       fbAuth.signOut().catch(() => {});
     }
