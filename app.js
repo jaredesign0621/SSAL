@@ -110,7 +110,14 @@ function saveState(skipCloud = false) {
       selectedServerId: appState.selectedServerId,
       selectedCharId: appState.selectedCharId,
       lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true }).catch(e => console.warn('Cloud sync error:', e));
+    }, { merge: true }).then(() => {
+      console.log('✅ Cloud Firestore sync success');
+    }).catch(e => {
+      console.warn('Cloud sync error:', e);
+      if (e.code === 'permission-denied') {
+        showToast('⚠️ Firestore 규칙 권한 부족 (규칙 허용 필요)');
+      }
+    });
   }
 }
 
@@ -145,6 +152,9 @@ function attachCloudSyncListener(userId) {
     }
   }, err => {
     console.warn('Real-time sync listener error:', err);
+    if (err.code === 'permission-denied') {
+      console.error('Firestore Permission Denied - check Firestore Rules');
+    }
   });
 }
 
