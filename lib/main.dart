@@ -58,9 +58,13 @@ class _SsalWebViewScreenState extends State<SsalWebViewScreen> {
               _isLoading = false;
             });
           },
+          onWebResourceError: (WebResourceError error) {
+            // 오프라인이나 네트워크 에러 발생 시 로컬 에셋으로 안전하게 전환
+            _controller.loadFlutterAsset('web/public/index.html');
+          },
         ),
       )
-      ..loadFlutterAsset('web/public/index.html');
+      ..loadRequest(Uri.parse('https://jaredesign0621.github.io/SSAL/'));
   }
 
   @override
