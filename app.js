@@ -1570,7 +1570,12 @@ function importAppDataJson(event) {
 
 // --- 초기화 실행 ---
 renderAll();
-if (!appState.currentUser) {
+if (appState.currentUser) {
+  // 이미 로그인된 세션이 있는 경우 자동 클라우드 동기화 연결
+  attachCloudSyncListener(appState.currentUser.id);
+  console.log('🌾 자동 로그인 활성화 상태:', appState.currentUser.nickname || appState.currentUser.username);
+} else {
+  // 세션이 없는 경우에만 로그인 모달 팝업
   setTimeout(() => {
     openAuthModal('login');
   }, 300);
