@@ -48,23 +48,29 @@ class _SsalWebViewScreenState extends State<SsalWebViewScreen> {
       ..setBackgroundColor(const Color(0xFF0F172A))
       ..setNavigationDelegate(
         NavigationDelegate(
-          onPageStarted: (String url) {
-            setState(() {
-              _isLoading = true;
-            });
-          },
+          onPageStarted: (String url) {},
           onPageFinished: (String url) {
             setState(() {
               _isLoading = false;
             });
           },
           onWebResourceError: (WebResourceError error) {
-            // 오프라인이나 네트워크 에러 발생 시 로컬 에셋으로 안전하게 전환
-            _controller.loadFlutterAsset('web/public/index.html');
+            setState(() {
+              _isLoading = false;
+            });
           },
         ),
       )
-      ..loadRequest(Uri.parse('https://jaredesign0621.github.io/SSAL/'));
+      ..loadFlutterAsset('web/public/index.html');
+
+    // 최대 2초 후 무조건 로딩 인디케이터 해제 (무한 로딩 절대 방지)
+    Future.delayed(const Duration(milliseconds: 1500), () {
+      if (mounted && _isLoading) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    });
   }
 
   @override
