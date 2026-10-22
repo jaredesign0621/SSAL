@@ -92,13 +92,49 @@ function loadState() {
 let appState = loadState();
 
 // 실시간 저장 (로컬 캐시 저장 + 로그인 시 Firebase 클라우드 자동 동기화)
+let cloudSyncStatus = 'idle'; // 'idle' | 'synced' | 'error'
+
+function updateSyncStatusUI(status, message) {
+  cloudSyncStatus = status;
+  const badge = document.getElementById('sync-status-badge');
+  const mobileBadge = document.getElementById('mobile-sync-badge');
+
+  if (status === 'synced') {
+    if (badge) {
+      badge.className = 'badge online-badge';
+      badge.innerText = '● 클라우드 실시간 동기화됨';
+    }
+    if (mobileBadge) {
+      mobileBadge.style.background = 'rgba(16, 185, 129, 0.2)';
+      mobileBadge.style.color = '#10b981';
+      mobileBadge.style.borderColor = '#10b981';
+      mobileBadge.innerText = '● 동기화 정상';
+    }
+  } else if (status === 'error') {
+    if (badge) {
+      badge.className = 'badge';
+      badge.style.background = 'rgba(239, 68, 68, 0.2)';
+      badge.style.color = '#ef4444';
+      badge.style.borderColor = '#ef4444';
+      badge.innerText = message || '⚠️ 클라우드 권한 오류 (규칙 확인 필요)';
+    }
+    if (mobileBadge) {
+      mobileBadge.style.background = 'rgba(239, 68, 68, 0.2)';
+      mobileBadge.style.color = '#ef4444';
+      mobileBadge.style.borderColor = '#ef4444';
+      mobileBadge.innerText = '⚠️ 규칙권한필요';
+    }
+  }
+}
+
 function saveState(skipCloud = false) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
   renderAll();
 
   // 로그인된 유저가 있고, 클라우드 쓰기를 건너뛰는 모드가 아닐 때만 Firestore에 저장
   if (!skipCloud && isFirebaseReady && fbDb && appState.currentUser) {
-    const userDocId = String(appState.currentUser.id || appState.currentUser.username || 'user');
+    // 모든 기기에서 동일하게 참조할 수 있도록 username을 문서 ID로 확정
+    const userDocId = String(appState.currentUser.username || 'jared0621');
     fbDb.collection('user_data').doc(userDocId).set({
       games: appState.games,
       servers: appState.servers,
@@ -111,11 +147,13 @@ function saveState(skipCloud = false) {
       selectedCharId: appState.selectedCharId,
       lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true }).then(() => {
-      console.log('✅ Cloud Firestore sync success');
+      console.log('✅ Cloud Firestore sync success for', userDocId);
+      updateSyncStatusUI('synced');
     }).catch(e => {
       console.warn('Cloud sync error:', e);
       if (e.code === 'permission-denied') {
-        showToast('⚠️ Firestore 규칙 권한 부족 (규칙 허용 필요)');
+        updateSyncStatusUI('error', '⚠️ Firestore 규칙 권한 부족 (규칙 허용 필요)');
+        showToast('⚠️ Firestore 규칙 권한 부족 (Firebase 콘솔 확인)');
       }
     });
   }
@@ -124,14 +162,15 @@ function saveState(skipCloud = false) {
 let cloudUnsubscribe = null;
 
 // 클라우드 실시간 리스너 연동 (웹과 앱 화면 간 실시간 양방향 싱크)
-function attachCloudSyncListener(userId) {
-  if (!isFirebaseReady || !fbDb || !userId) return;
+function attachCloudSyncListener(username) {
+  if (!isFirebaseReady || !fbDb || !username) return;
   if (cloudUnsubscribe) {
     cloudUnsubscribe();
     cloudUnsubscribe = null;
   }
 
-  const userDocRef = fbDb.collection('user_data').doc(String(userId));
+  const userDocId = String(username);
+  const userDocRef = fbDb.collection('user_data').doc(userDocId);
   cloudUnsubscribe = userDocRef.onSnapshot(doc => {
     if (doc.exists) {
       const cloudData = doc.data();
@@ -148,22 +187,24 @@ function attachCloudSyncListener(userId) {
 
       localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
       renderAll();
-      console.log('🔄 Firestore Real-time Cloud Sync updated across devices');
+      updateSyncStatusUI('synced');
+      console.log('🔄 Firestore Real-time Cloud Sync updated across devices for', userDocId);
     }
   }, err => {
     console.warn('Real-time sync listener error:', err);
     if (err.code === 'permission-denied') {
-      console.error('Firestore Permission Denied - check Firestore Rules');
+      updateSyncStatusUI('error', '⚠️ Firestore 규칙 권한 부족');
     }
   });
 }
 
 // 클라우드에서 유저 데이터 불러오기
-async function loadUserDataFromCloud(userId) {
-  if (!isFirebaseReady || !fbDb || !userId) return;
-  attachCloudSyncListener(userId);
+async function loadUserDataFromCloud(username) {
+  if (!isFirebaseReady || !fbDb || !username) return;
+  const userDocId = String(username);
+  attachCloudSyncListener(userDocId);
   try {
-    const doc = await fbDb.collection('user_data').doc(String(userId)).get();
+    const doc = await fbDb.collection('user_data').doc(userDocId).get();
     if (doc.exists) {
       const cloudData = doc.data();
       appState.games = cloudData.games || [];
@@ -176,10 +217,14 @@ async function loadUserDataFromCloud(userId) {
       appState.selectedServerId = cloudData.selectedServerId || null;
       appState.selectedCharId = cloudData.selectedCharId || null;
       saveState(true); // 로컬에만 저장하고 클라우드 덮어쓰기 방지
+      updateSyncStatusUI('synced');
       showToast('☁️ 클라우드 데이터를 성공적으로 동기화했습니다.');
     }
   } catch (err) {
     console.warn('Cloud load error:', err);
+    if (err.code === 'permission-denied') {
+      updateSyncStatusUI('error', '⚠️ Firestore 규칙 권한 부족');
+    }
   }
 }
 
@@ -1263,7 +1308,7 @@ function handleAuthSubmit(e) {
     saveState(true); // 로그인 직후에는 클라우드를 덮어쓰지 않고 로컬에만 세션 기록
     closeModal('modal-auth');
     showToast(`${user.nickname || user.username}님, 환영합니다!`);
-    loadUserDataFromCloud(user.id);
+    loadUserDataFromCloud(user.username);
   } else {
     // 회원가입
     const nickname = document.getElementById('auth-nickname').value.trim() || username;
@@ -1592,7 +1637,7 @@ function importAppDataJson(event) {
 renderAll();
 if (appState.currentUser) {
   // 이미 로그인된 세션이 있는 경우 자동 클라우드 동기화 연결
-  attachCloudSyncListener(appState.currentUser.id);
+  attachCloudSyncListener(appState.currentUser.username);
   console.log('🌾 자동 로그인 활성화 상태:', appState.currentUser.nickname || appState.currentUser.username);
 } else {
   // 세션이 없는 경우에만 로그인 모달 팝업
